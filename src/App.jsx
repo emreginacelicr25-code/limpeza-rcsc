@@ -339,7 +339,7 @@ export default function App() {
       <p className="text-gray-600 mb-6 text-center">E.M. Regina Celi da Silva Cerdeira • Quem é você?</p>
       <div className="flex flex-wrap gap-3 justify-center max-w-md">
         {nomes.map(n => <Chip key={n} nome={n} ativo onClick={()=>setUsuario(n)}/>)}
-      </div>
+</div>
     </div>
   )
   return (
