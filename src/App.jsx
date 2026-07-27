@@ -349,4 +349,19 @@ export default function App() {
         <span className="ml-auto text-sm font-bold px-3 py-1 rounded-full text-white" style={{background:CORES[usuario]}}>{usuario}</span>
         <button onClick={()=>setUsuario(null)} className="text-sm text-gray-500 underline">trocar</button>
       </header>
-      <nav className="flex gap-2 overflow-x-auto px-4 p
+      <nav className="flex gap-2 overflow-x-auto px-4 py-3">
+        {abas.map(([id,label]) => (
+          <button key={id} onClick={()=>setAba(id)}
+            className={`whitespace-nowrap rounded-xl px-4 py-2 font-bold text-sm ${aba===id?'bg-[#1F4E79] text-white':'bg-white shadow'}`}>{label}</button>
+        ))}
+      </nav>
+      <main className="px-4 max-w-3xl mx-auto">
+        {aba==='rotina' && <Rotina usuario={usuario}/>}
+        {aba==='ocorr' && <Ocorrencias usuario={usuario}/>}
+        {aba==='estoque' && <Estoque usuario={usuario}/>}
+        {aba==='fichaS' && <FichaSupervisora/>}
+        {aba==='vistoria' && <FichaSentinelas usuario={usuario}/>}
+      </main>
+    </div>
+  )
+}
