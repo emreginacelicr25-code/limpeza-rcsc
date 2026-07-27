@@ -1,0 +1,1 @@
+https://wulihgevyzzhysnxzhoy.supabase.co
