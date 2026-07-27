@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { supabase, WHATSAPP_ESCOLA } from './supabase.js'
 
 const CORES = { 'João':'#1565C0','Igor':'#2E7D32','Ana':'#AD1457','Ivani':'#E65100','Daniela':'#00838F','Supervisora':'#1F4E79' }
@@ -159,7 +159,7 @@ function Ocorrencias({ usuario }) {
 
 /* ================= ESTOQUE SEMÁFORO ================= */
 function Estoque({ usuario }) {
-  const [materiais, setMateriais] = useState([])
+  const [limpeza_materiais, setMateriais] = useState([])
   const [qtd, setQtd] = useState({})
   useEffect(()=>{ carregar() },[])
   async function carregar() {
@@ -183,7 +183,7 @@ function Estoque({ usuario }) {
     await supabase.from('limpeza_contagens').insert({ material_id:m.id, data:hoje(), quantidade:q, registrado_por:usuario })
     setQtd({...qtd,[m.id]:''}); carregar()
   }
-  const alertas = materiais.filter(m => ['amarelo','vermelho'].includes(status(m).s))
+  const alertas = limpeza_materiais.filter(m => ['amarelo','vermelho'].includes(status(m).s))
   function avisarSecretaria() {
     const linhas = alertas.map(m => `• ${m.nome}: ${m.ultima?.quantidade ?? '?'} ${m.unidade} (mínimo ${m.estoque_minimo})`).join('%0A')
     const txt = `🟡🔴 ALERTA DE MATERIAL DE LIMPEZA — ${fmt(hoje())}%0AItens no ponto de reposição:%0A${linhas}%0AFavor solicitar reposição à SME. (Enviado pela plataforma Limpeza & Materiais)`
@@ -203,7 +203,7 @@ function Estoque({ usuario }) {
         <p className="text-sm text-gray-600">Contagem toda sexta-feira. Ao atingir o estoque mínimo (🟡), a secretaria é avisada — sem esperar acabar.</p>
       </Card>
       <div className="grid md:grid-cols-2 gap-3">
-        {materiais.map(m => { const st = status(m); return (
+        {limpeza_materiais.map(m => { const st = status(m); return (
           <Card key={m.id}>
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -229,7 +229,7 @@ function Estoque({ usuario }) {
 /* ================= FICHAS (SUPERVISORA E SENTINELAS) ================= */
 const ITENS_VERIF = {
   1: ['Salas do 1º turno entregues limpas às 8h','Banheiros dos alunos limpos e abastecidos','Guardiã em ronda / presente no posto','Refeitório atendido no desjejum','Varrição das externas em andamento','Janelas das salas com mofo abertas','Bomba d\u2019água ligada/verificada'],
-  2: ['Limpeza das 12h: cada ASG nas PRÓPRIAS salas','Banheiros em limpeza (masculino sem alunos)','Refeitório entregue limpo às 12h','Merenda/almoço do 1º turno atendida','Administrativas do dia executadas','Ocorrências da manhã registradas'],
+  2: ['Limpeza de virada (12h–13h) em execução','Banheiros em limpeza (masculino sem alunos)','Refeitório entregue limpo às 12h','Merenda/almoço do 1º turno atendida','Administrativas do dia executadas','Ocorrências da manhã registradas'],
   3: ['Almoço do 2º turno atendido em dupla','Guardiã da tarde em ronda','Lanche com refeitório atendido','Pontos de atenção executados','Antecipação de salas em andamento','Janelas das salas com mofo fechadas','Varrição da tarde em andamento'],
 }
 function FichaSupervisora() {
@@ -324,22 +324,114 @@ function FichaSentinelas({ usuario }) {
   )
 }
 
+/* ================= SALA NOTA 10 ================= */
+const CRITERIOS = ['Chão sem lixo','Carteiras e cadeiras organizadas','Paredes e murais preservados','Materiais guardados','Lixeira usada corretamente']
+function SalaNota10({ usuario }) {
+  const [salas, setSalas] = useState([])
+  const [f, setF] = useState({ sala:'', pontos:[null,null,null,null,null], obs:'' })
+  const [placar, setPlacar] = useState([])
+  useEffect(()=>{ carregar() },[])
+  async function carregar() {
+    const { data: s } = await supabase.from('limpeza_salas').select('*').eq('ativo', true).order('nome')
+    setSalas(s||[])
+    const ini = hoje().slice(0,7)+'-01'
+    const { data: a } = await supabase.from('limpeza_avaliacoes').select('*').gte('data', ini)
+    const agg = {}
+    ;(a||[]).forEach(x => { (agg[x.sala]=agg[x.sala]||[]).push(x.nota) })
+    const rank = Object.entries(agg).map(([sala,notas]) => ({ sala, media:(notas.reduce((p,c)=>p+c,0)/notas.length).toFixed(1), n:notas.length }))
+    rank.sort((a,b)=>b.media-a.media)
+    setPlacar(rank)
+  }
+  const nota = f.pontos.every(p=>p!==null) ? f.pontos.reduce((p,c)=>p+c,0) : null
+  async function salvar() {
+    if (!f.sala) return alert('Escolha a sala.')
+    if (nota===null) return alert('Pontue os 5 critérios.')
+    await supabase.from('limpeza_avaliacoes').insert({ data:hoje(), sala:f.sala, asg_nome:usuario, c1:f.pontos[0], c2:f.pontos[1], c3:f.pontos[2], c4:f.pontos[3], c5:f.pontos[4], nota, obs:f.obs })
+    setF({ sala:'', pontos:[null,null,null,null,null], obs:'' }); carregar(); alert('Avaliação salva! Nota: '+nota)
+  }
+  return (
+    <div className="space-y-4">
+      <Card>
+        <Titulo>🏆 Sala Nota 10 — Turma da Mônica</Titulo>
+        <p className="text-sm text-gray-600 mb-2">Avaliação semanal (toda sexta) pelo ASG responsável. 0 = precisa melhorar • 1 = razoável • 2 = muito bem cuidado. Não discuta notas com alunos ou professores — dúvidas vão à direção.</p>
+        <select value={f.sala} onChange={e=>setF({...f,sala:e.target.value})} className="border rounded-lg px-3 py-2 w-full mb-2">
+          <option value="">Escolha a sala/turma…</option>
+          {salas.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+        </select>
+        {CRITERIOS.map((c,i)=>(
+          <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 mb-2">
+            <span className="flex-1 text-sm">{i+1}. {c}</span>
+            {[0,1,2].map(v => (
+              <button key={v} onClick={()=>{ const p=[...f.pontos]; p[i]=v; setF({...f,pontos:p}) }}
+                className={`w-9 h-9 rounded-lg font-bold ${f.pontos[i]===v?'bg-[#1F4E79] text-white':'bg-white border'}`}>{v}</button>
+            ))}
+          </div>
+        ))}
+        <div className="flex items-center gap-3 mt-2">
+          <span className="display font-extrabold text-lg text-[#1F4E79]">Nota: {nota===null?'—':nota+'/10'}</span>
+          <input value={f.obs} onChange={e=>setF({...f,obs:e.target.value})} placeholder="Observação (opcional)" className="flex-1 border rounded-lg px-3 py-1.5 text-sm"/>
+        </div>
+        <button onClick={salvar} className="mt-3 bg-[#1F4E79] text-white font-bold rounded-xl px-5 py-2.5">Salvar avaliação</button>
+      </Card>
+      <Card>
+        <Titulo>📊 Placar do mês</Titulo>
+        {placar.length===0 && <p className="text-sm text-gray-500">Nenhuma avaliação registrada neste mês ainda.</p>}
+        {placar.map((p,i)=>(
+          <div key={p.sala} className={`flex items-center gap-3 rounded-xl px-3 py-2 mb-1 ${i===0?'bg-yellow-100':'bg-gray-50'}`}>
+            <span className="display font-extrabold w-8 text-center">{i===0?'🏆':i+1+'º'}</span>
+            <span className="flex-1 font-bold">{p.sala}</span>
+            <span className="text-sm text-gray-500">{p.n} aval.</span>
+            <span className="display font-extrabold text-[#1F4E79]">{p.media}</span>
+          </div>
+        ))}
+        <p className="text-xs text-gray-500 mt-2">A campeã do mês recebe o selo do Cascão e o troféu itinerante. O placar completo vai ao mural na segunda-feira.</p>
+      </Card>
+    </div>
+  )
+}
+
+/* ================= LOGIN COM PIN ================= */
+function TelaPin({ nome, onOk, onVoltar }) {
+  const [pin, setPin] = useState('')
+  const [erro, setErro] = useState(false)
+  async function entrar() {
+    const { data } = await supabase.from('limpeza_usuarios').select('nome').eq('nome', nome).eq('pin', pin).maybeSingle()
+    if (data) onOk(); else { setErro(true); setPin('') }
+  }
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+      <span className="display font-extrabold text-2xl px-5 py-2 rounded-full text-white mb-4" style={{background:CORES[nome]}}>{nome.toUpperCase()}</span>
+      <p className="text-gray-600 mb-3">Digite sua senha de 4 números</p>
+      <input type="password" inputMode="numeric" maxLength={4} value={pin} autoFocus
+        onChange={e=>{ setErro(false); setPin(e.target.value.replace(/\D/g,'')) }}
+        className="border-2 rounded-2xl px-4 py-3 text-3xl text-center tracking-[.5em] w-48"/>
+      {erro && <p className="text-red-600 font-bold mt-2">Senha incorreta. Tente de novo.</p>}
+      <div className="flex gap-3 mt-4">
+        <button onClick={onVoltar} className="rounded-xl px-5 py-2.5 font-bold bg-gray-200">Voltar</button>
+        <button onClick={entrar} disabled={pin.length<4} className="rounded-xl px-5 py-2.5 font-bold bg-[#1F4E79] text-white disabled:opacity-40">Entrar</button>
+      </div>
+    </div>
+  )
+}
+
 /* ================= APP ================= */
 export default function App() {
   const [usuario, setUsuario] = useState(null)
+  const [pendente, setPendente] = useState(null)
   const [aba, setAba] = useState('rotina')
   const nomes = ['João','Igor','Ana','Ivani','Daniela','Supervisora']
   const abas = usuario==='Supervisora'
-    ? [['fichaS','📋 Monitoramento'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
-    : [['rotina','🕐 Rotina'],['ocorr','📸 Ocorrências'],['estoque','🟢 Estoque'],['vistoria','🔍 Sentinelas']]
+    ? [['fichaS','📋 Monitoramento'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
+    : [['rotina','🕐 Rotina'],['nota10','🏆 Sala Nota 10'],['ocorr','📸 Ocorrências'],['estoque','🟢 Estoque'],['vistoria','🔍 Sentinelas']]
   useEffect(()=>{ if(usuario==='Supervisora') setAba('fichaS'); else setAba('rotina') },[usuario])
+  if (!usuario && pendente) return <TelaPin nome={pendente} onOk={()=>{ setUsuario(pendente); setPendente(null) }} onVoltar={()=>setPendente(null)}/>
   if (!usuario) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <h1 className="display text-3xl font-extrabold text-[#1F4E79] text-center">🧹 Limpeza & Materiais</h1>
       <p className="text-gray-600 mb-6 text-center">E.M. Regina Celi da Silva Cerdeira • Quem é você?</p>
       <div className="flex flex-wrap gap-3 justify-center max-w-md">
-        {nomes.map(n => <Chip key={n} nome={n} ativo onClick={()=>setUsuario(n)}/>)}
-</div>
+        {nomes.map(n => <Chip key={n} nome={n} ativo onClick={()=>setPendente(n)}/>)}
+      </div>
     </div>
   )
   return (
@@ -357,6 +449,7 @@ export default function App() {
       </nav>
       <main className="px-4 max-w-3xl mx-auto">
         {aba==='rotina' && <Rotina usuario={usuario}/>}
+        {aba==='nota10' && <SalaNota10 usuario={usuario}/>}
         {aba==='ocorr' && <Ocorrencias usuario={usuario}/>}
         {aba==='estoque' && <Estoque usuario={usuario}/>}
         {aba==='fichaS' && <FichaSupervisora/>}
