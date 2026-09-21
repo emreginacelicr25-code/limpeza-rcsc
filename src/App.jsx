@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase, WHATSAPP_ESCOLA } from './supabase.js'
 
-const CORES = { 'João':'#1565C0','Igor':'#2E7D32','Ana':'#AD1457','Ivani':'#E65100','Daniela':'#00838F','Supervisora':'#1F4E79' }
+const CORES = { 'João':'#1565C0','Igor':'#2E7D32','Edna':'#AD1457','Evanir':'#E65100','Daniela':'#00838F','Acompanhamento':'#1F4E79','Direção':'#6A1B9A' }
 const hoje = () => new Date().toISOString().slice(0,10)
 const diaSemana = d => ['dom','seg','ter','qua','qui','sex','sab'][new Date(d+'T12:00:00').getDay()]
 const fmt = d => d?.split('-').reverse().join('/')
@@ -226,10 +226,10 @@ function Estoque({ usuario }) {
   )
 }
 
-/* ================= FICHAS (SUPERVISORA E SENTINELAS) ================= */
+/* ================= FICHAS (ACOMPANHAMENTO E SENTINELAS) ================= */
 const ITENS_VERIF = {
   1: ['Salas do 1º turno entregues limpas às 8h','Banheiros dos alunos limpos e abastecidos','Guardiã em ronda / presente no posto','Refeitório atendido no desjejum','Varrição das externas em andamento','Janelas das salas com mofo abertas','Bomba d\u2019água ligada/verificada'],
-  2: ['Limpeza de virada (12h–13h) em execução','Banheiros em limpeza (masculino sem alunos)','Refeitório entregue limpo às 12h','Merenda/almoço do 1º turno atendida','Administrativas do dia executadas','Ocorrências da manhã registradas'],
+  2: ['Limpeza das 12h: cada ASG nas PRÓPRIAS salas','Banheiros em limpeza (masculino sem alunos)','Refeitório entregue limpo às 12h','Merenda/almoço do 1º turno atendida','Administrativas do dia executadas','Ocorrências da manhã registradas'],
   3: ['Almoço do 2º turno atendido em dupla','Guardiã da tarde em ronda','Lanche com refeitório atendido','Pontos de atenção executados','Antecipação de salas em andamento','Janelas das salas com mofo fechadas','Varrição da tarde em andamento'],
 }
 function FichaSupervisora() {
@@ -255,7 +255,7 @@ function FichaSupervisora() {
   const itens = ITENS_VERIF[verif]
   return (
     <Card>
-      <Titulo>📋 Ficha da Supervisora</Titulo>
+      <Titulo>📋 Ficha de Acompanhamento</Titulo>
       <div className="flex flex-wrap gap-2 items-center mb-3">
         <input type="date" value={data} onChange={e=>setData(e.target.value)} className="border rounded-lg px-3 py-2"/>
         {[1,2,3].map(v => (
@@ -414,16 +414,200 @@ function TelaPin({ nome, onOk, onVoltar }) {
   )
 }
 
+/* ================= GESTÃO DA EQUIPE (só Direção) ================= */
+const DIAS_SEMANA = [['seg','Seg'],['ter','Ter'],['qua','Qua'],['qui','Qui'],['sex','Sex'],['sab','Sáb'],['dom','Dom']]
+const ASGS = ['João','Igor','Edna','Evanir','Daniela']
+
+function GestaoSalas() {
+  const [salas, setSalas] = useState([])
+  const [novoNome, setNovoNome] = useState('')
+  useEffect(()=>{ carregar() },[])
+  async function carregar() {
+    const { data } = await supabase.from('limpeza_salas').select('*').order('nome')
+    setSalas(data||[])
+  }
+  async function adicionar() {
+    if (!novoNome.trim()) return
+    await supabase.from('limpeza_salas').insert({ nome: novoNome.trim(), ativo: true })
+    setNovoNome(''); carregar()
+  }
+  async function renomear(s, nome) {
+    await supabase.from('limpeza_salas').update({ nome }).eq('id', s.id); carregar()
+  }
+  async function alternarAtivo(s) {
+    await supabase.from('limpeza_salas').update({ ativo: !s.ativo }).eq('id', s.id); carregar()
+  }
+  async function excluir(s) {
+    if (!confirm(`Excluir "${s.nome}"? Avaliações já feitas para essa sala permanecem no histórico.`)) return
+    await supabase.from('limpeza_salas').delete().eq('id', s.id); carregar()
+  }
+  return (
+    <Card>
+      <Titulo>🏫 Locais de limpeza (Sala Nota 10)</Titulo>
+      <p className="text-sm text-gray-600 mb-3">Ambientes/turmas disponíveis para avaliação na campanha. Desative em vez de excluir para preservar o histórico de notas.</p>
+      <div className="flex gap-2 mb-3">
+        <input value={novoNome} onChange={e=>setNovoNome(e.target.value)} placeholder="Novo local (ex.: S15, Sala de Dança)" className="flex-1 border rounded-lg px-3 py-2"/>
+        <button onClick={adicionar} className="bg-[#1F4E79] text-white font-bold rounded-lg px-4">+ Adicionar</button>
+      </div>
+      <div className="space-y-2">
+        {salas.map(s => (
+          <div key={s.id} className={`flex items-center gap-2 rounded-xl px-3 py-2 ${s.ativo?'bg-gray-50':'bg-gray-100 opacity-60'}`}>
+            <input defaultValue={s.nome} onBlur={e=>{ if(e.target.value.trim() && e.target.value!==s.nome) renomear(s, e.target.value.trim()) }}
+              className="flex-1 bg-transparent font-bold border-b border-transparent focus:border-gray-300 outline-none"/>
+            <button onClick={()=>alternarAtivo(s)} className={`text-xs font-bold px-2 py-1 rounded-full ${s.ativo?'bg-green-100 text-green-800':'bg-gray-300 text-gray-700'}`}>{s.ativo?'ativo':'inativo'}</button>
+            <button onClick={()=>excluir(s)} className="text-xs text-red-600 underline">excluir</button>
+          </div>
+        ))}
+        {salas.length===0 && <p className="text-sm text-gray-500">Nenhum local cadastrado.</p>}
+      </div>
+    </Card>
+  )
+}
+
+function LinhaTarefa({ t, onSalvo }) {
+  const [f, setF] = useState({ asg_nome:t.asg_nome, hora_inicio:t.hora_inicio?.slice(0,5)||'', hora_fim:t.hora_fim?.slice(0,5)||'', descricao:t.descricao, dias:t.dias||[], ordem:t.ordem||0 })
+  const [editando, setEditando] = useState(false)
+  function toggleDia(d) {
+    setF(prev => ({...prev, dias: prev.dias.includes(d) ? prev.dias.filter(x=>x!==d) : [...prev.dias, d]}))
+  }
+  async function salvar() {
+    await supabase.from('limpeza_tarefas').update({
+      asg_nome: f.asg_nome, hora_inicio: f.hora_inicio||null, hora_fim: f.hora_fim||null,
+      descricao: f.descricao, dias: f.dias.length?f.dias:null, ordem: Number(f.ordem)||0
+    }).eq('id', t.id)
+    setEditando(false); onSalvo()
+  }
+  async function excluir() {
+    if (!confirm('Excluir esta tarefa da escala?')) return
+    await supabase.from('limpeza_tarefas').delete().eq('id', t.id); onSalvo()
+  }
+  if (!editando) return (
+    <div className="flex items-start gap-2 bg-gray-50 rounded-xl px-3 py-2">
+      <div className="flex-1">
+        <p className="text-sm"><b>{f.hora_inicio}–{f.hora_fim}</b> • {f.descricao}</p>
+        <p className="text-xs text-gray-500">{f.dias.length? f.dias.join(', ') : 'todos os dias úteis'}</p>
+      </div>
+      <button onClick={()=>setEditando(true)} className="text-xs bg-[#1F4E79] text-white rounded-lg px-2 py-1">editar</button>
+      <button onClick={excluir} className="text-xs text-red-600 underline">excluir</button>
+    </div>
+  )
+  return (
+    <div className="bg-white border-2 border-[#1F4E79] rounded-xl px-3 py-3 space-y-2">
+      <div className="flex gap-2">
+        <select value={f.asg_nome} onChange={e=>setF({...f,asg_nome:e.target.value})} className="border rounded-lg px-2 py-1 text-sm">
+          {ASGS.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <input type="time" value={f.hora_inicio} onChange={e=>setF({...f,hora_inicio:e.target.value})} className="border rounded-lg px-2 py-1 text-sm"/>
+        <input type="time" value={f.hora_fim} onChange={e=>setF({...f,hora_fim:e.target.value})} className="border rounded-lg px-2 py-1 text-sm"/>
+        <input type="number" value={f.ordem} onChange={e=>setF({...f,ordem:e.target.value})} className="w-16 border rounded-lg px-2 py-1 text-sm" title="Ordem"/>
+      </div>
+      <textarea value={f.descricao} onChange={e=>setF({...f,descricao:e.target.value})} className="w-full border rounded-lg px-2 py-1 text-sm" rows={2}/>
+      <div className="flex flex-wrap gap-1">
+        {DIAS_SEMANA.map(([d,label]) => (
+          <button key={d} onClick={()=>toggleDia(d)}
+            className={`text-xs px-2 py-1 rounded-lg font-bold ${f.dias.includes(d)?'bg-[#1F4E79] text-white':'bg-gray-100'}`}>{label}</button>
+        ))}
+        <span className="text-xs text-gray-400 self-center ml-1">(nenhum marcado = todos os dias úteis)</span>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={salvar} className="text-sm bg-[#1F4E79] text-white font-bold rounded-lg px-3 py-1.5">Salvar</button>
+        <button onClick={()=>setEditando(false)} className="text-sm bg-gray-200 rounded-lg px-3 py-1.5">Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+function NovaTarefa({ asg, onCriada }) {
+  const [f, setF] = useState({ hora_inicio:'', hora_fim:'', descricao:'', dias:[], ordem:0 })
+  const [abrir, setAbrir] = useState(false)
+  function toggleDia(d) {
+    setF(prev => ({...prev, dias: prev.dias.includes(d) ? prev.dias.filter(x=>x!==d) : [...prev.dias, d]}))
+  }
+  async function criar() {
+    if (!f.descricao.trim()) return alert('Descreva a tarefa.')
+    await supabase.from('limpeza_tarefas').insert({
+      asg_nome: asg, hora_inicio: f.hora_inicio||null, hora_fim: f.hora_fim||null,
+      descricao: f.descricao.trim(), dias: f.dias.length?f.dias:null, ordem: Number(f.ordem)||0
+    })
+    setF({ hora_inicio:'', hora_fim:'', descricao:'', dias:[], ordem:0 }); setAbrir(false); onCriada()
+  }
+  if (!abrir) return <button onClick={()=>setAbrir(true)} className="text-sm text-[#1F4E79] font-bold underline">+ nova tarefa para {asg}</button>
+  return (
+    <div className="bg-white border-2 border-dashed border-[#1F4E79] rounded-xl px-3 py-3 space-y-2">
+      <div className="flex gap-2">
+        <input type="time" value={f.hora_inicio} onChange={e=>setF({...f,hora_inicio:e.target.value})} className="border rounded-lg px-2 py-1 text-sm"/>
+        <input type="time" value={f.hora_fim} onChange={e=>setF({...f,hora_fim:e.target.value})} className="border rounded-lg px-2 py-1 text-sm"/>
+        <input type="number" value={f.ordem} onChange={e=>setF({...f,ordem:e.target.value})} placeholder="ordem" className="w-20 border rounded-lg px-2 py-1 text-sm"/>
+      </div>
+      <textarea value={f.descricao} onChange={e=>setF({...f,descricao:e.target.value})} placeholder="Descrição da tarefa" className="w-full border rounded-lg px-2 py-1 text-sm" rows={2}/>
+      <div className="flex flex-wrap gap-1">
+        {DIAS_SEMANA.map(([d,label]) => (
+          <button key={d} onClick={()=>toggleDia(d)}
+            className={`text-xs px-2 py-1 rounded-lg font-bold ${f.dias.includes(d)?'bg-[#1F4E79] text-white':'bg-gray-100'}`}>{label}</button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button onClick={criar} className="text-sm bg-[#1F4E79] text-white font-bold rounded-lg px-3 py-1.5">Criar</button>
+        <button onClick={()=>setAbrir(false)} className="text-sm bg-gray-200 rounded-lg px-3 py-1.5">Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+function GestaoTarefas() {
+  const [tarefas, setTarefas] = useState([])
+  const [asgAberto, setAsgAberto] = useState(ASGS[0])
+  useEffect(()=>{ carregar() },[])
+  async function carregar() {
+    const { data } = await supabase.from('limpeza_tarefas').select('*').order('asg_nome').order('ordem')
+    setTarefas(data||[])
+  }
+  return (
+    <Card>
+      <Titulo>🧑‍🤝‍🧑 Quem faz o quê — editar a escala</Titulo>
+      <p className="text-sm text-gray-600 mb-3">Reatribua horários, descrições e dias de cada tarefa. As mudanças valem a partir de agora para todos.</p>
+      <div className="flex gap-2 overflow-x-auto mb-3">
+        {ASGS.map(n => (
+          <button key={n} onClick={()=>setAsgAberto(n)}
+            style={asgAberto===n?{background:CORES[n]}:{}}
+            className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-sm font-bold ${asgAberto===n?'text-white':'bg-gray-100'}`}>{n}</button>
+        ))}
+      </div>
+      <div className="space-y-2">
+        {tarefas.filter(t=>t.asg_nome===asgAberto).map(t => <LinhaTarefa key={t.id} t={t} onSalvo={carregar}/>)}
+        <NovaTarefa asg={asgAberto} onCriada={carregar}/>
+      </div>
+    </Card>
+  )
+}
+
+function GestaoEquipe() {
+  const [sub, setSub] = useState('salas')
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <button onClick={()=>setSub('salas')} className={`rounded-xl px-4 py-2 font-bold text-sm ${sub==='salas'?'bg-[#6A1B9A] text-white':'bg-white shadow'}`}>🏫 Locais de limpeza</button>
+        <button onClick={()=>setSub('tarefas')} className={`rounded-xl px-4 py-2 font-bold text-sm ${sub==='tarefas'?'bg-[#6A1B9A] text-white':'bg-white shadow'}`}>🧑‍🤝‍🧑 Quem faz o quê</button>
+      </div>
+      {sub==='salas' && <GestaoSalas/>}
+      {sub==='tarefas' && <GestaoTarefas/>}
+    </div>
+  )
+}
+
 /* ================= APP ================= */
 export default function App() {
   const [usuario, setUsuario] = useState(null)
   const [pendente, setPendente] = useState(null)
   const [aba, setAba] = useState('rotina')
-  const nomes = ['João','Igor','Ana','Ivani','Daniela','Supervisora']
-  const abas = usuario==='Supervisora'
+  const nomes = ['João','Igor','Edna','Evanir','Daniela','Acompanhamento','Direção']
+  const gestao = usuario==='Acompanhamento' || usuario==='Direção'
+  const abas = usuario==='Direção'
+    ? [['fichaS','📋 Monitoramento'],['gestao','⚙️ Gestão da Equipe'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
+    : gestao
     ? [['fichaS','📋 Monitoramento'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
     : [['rotina','🕐 Rotina'],['nota10','🏆 Sala Nota 10'],['ocorr','📸 Ocorrências'],['estoque','🟢 Estoque'],['vistoria','🔍 Sentinelas']]
-  useEffect(()=>{ if(usuario==='Supervisora') setAba('fichaS'); else setAba('rotina') },[usuario])
+  useEffect(()=>{ if(gestao) setAba('fichaS'); else setAba('rotina') },[usuario])
   if (!usuario && pendente) return <TelaPin nome={pendente} onOk={()=>{ setUsuario(pendente); setPendente(null) }} onVoltar={()=>setPendente(null)}/>
   if (!usuario) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -453,6 +637,7 @@ export default function App() {
         {aba==='ocorr' && <Ocorrencias usuario={usuario}/>}
         {aba==='estoque' && <Estoque usuario={usuario}/>}
         {aba==='fichaS' && <FichaSupervisora/>}
+        {aba==='gestao' && usuario==='Direção' && <GestaoEquipe/>}
         {aba==='vistoria' && <FichaSentinelas usuario={usuario}/>}
       </main>
     </div>
