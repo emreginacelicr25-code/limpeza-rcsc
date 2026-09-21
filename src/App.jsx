@@ -414,6 +414,7 @@ function TelaPin({ nome, onOk, onVoltar }) {
   )
 }
 
+
 /* ================= GESTÃO DA EQUIPE (só Direção) ================= */
 const DIAS_SEMANA = [['seg','Seg'],['ter','Ter'],['qua','Qua'],['qui','Qui'],['sex','Sex'],['sab','Sáb'],['dom','Dom']]
 const ASGS = ['João','Igor','Edna','Evanir','Daniela']
@@ -595,6 +596,96 @@ function GestaoEquipe() {
   )
 }
 
+
+/* ================= MAPA DO ESPAÇO ESCOLAR ================= */
+const MAPA_SECOES = [
+  { titulo: '🏢 2º Andar', sub: 'administrativo — seg, qua e sex (dupla do dia)', locais: [
+    { nome: 'Direção', asg: 'equipe' }, { nome: 'ETP', asg: 'equipe' }, { nome: 'Sala dos Professores', asg: 'equipe' },
+  ]},
+  { titulo: '🏫 Bloco Administrativo e Entrada', sub: '', locais: [
+    { nome: 'Portaria', det: 'bomba d\u2019água: liga 7h, desliga até 16h', asg: 'João' },
+    { nome: 'Secretaria', det: 'recepção e atendimento — seg/qua/sex', asg: 'equipe' },
+    { nome: 'Ativo • Inativo', det: 'depósito de material — ter/qui', asg: 'equipe' },
+    { nome: 'Banheiro Funcionários', det: '2 limpezas/dia (9h e 16h)', asg: 'Evanir' },
+    { nome: 'Auditório', det: 'ter/qui e após eventos', asg: 'equipe' },
+  ]},
+  { titulo: '📚 Corredor das Salas de Aula', sub: 'cada ASG: 1 grande + 1 classe especial + 1 média • limpeza 7h-8h, 12h-13h e 17h-18h', locais: [
+    { nome: 'S1', asg: 'Igor' }, { nome: 'S2', asg: 'Edna' }, { nome: 'S3', asg: 'Evanir' }, { nome: 'S4', asg: 'Daniela' },
+    { nome: 'S5 (classe especial)', asg: 'Igor' }, { nome: 'S6 (classe especial)', asg: 'Edna', mofo: true },
+    { nome: 'S7 (classe especial)', asg: 'Evanir' }, { nome: 'S8 (classe especial)', asg: 'Daniela' },
+    { nome: 'S9', asg: 'Igor' }, { nome: 'S10', asg: 'Edna' }, { nome: 'S11', asg: 'Evanir' }, { nome: 'S12', asg: 'Daniela' },
+    { nome: 'S13 — Sala de Leitura', asg: 'João' }, { nome: 'S14 — Sala de Corpo', asg: 'João', mofo: true },
+    { nome: 'Informática', asg: 'João' }, { nome: 'Lab. Inovação', asg: 'Daniela', mofo: true },
+    { nome: 'LIPI', asg: 'João', mofo: true }, { nome: 'Classe Especial 1', asg: 'João', mofo: true }, { nome: 'Classe Especial 2', asg: 'João', mofo: true },
+  ]},
+  { titulo: '🚻 Banheiros dos Alunos', sub: 'guardiã sempre mulher: Edna (manhã) • Evanir/Daniela (tarde)', locais: [
+    { nome: 'Banheiro Masculino', det: 'limpeza por João só sem alunos', asg: 'João', guardia: true },
+    { nome: 'Banheiro Feminino', det: 'limpeza e guardiã da manhã: Edna', asg: 'Edna', guardia: true },
+    { nome: 'Banheiros Adaptados', det: 'limpeza por Igor sem alunos', asg: 'Igor', guardia: true },
+    { nome: 'Fraldário', asg: 'Edna' },
+  ]},
+  { titulo: '🍽️ Refeitório e Convivência', sub: 'Anjo do Refeitório presente em todas as refeições dos alunos', locais: [
+    { nome: 'Refeitório', det: 'manhã: João/Igor (rodízio) • tarde: Evanir + Daniela', asg: 'equipe' },
+    { nome: 'Pátio Coberto', det: 'Daniela (9h-10h) + varrição diária', asg: 'equipe' },
+    { nome: 'Corredores e Rampas', det: 'nunca lavar com alunos circulando', asg: 'equipe' },
+  ]},
+  { titulo: '🌳 Áreas Externas', sub: 'quadra construída na horizontal • varrição diária', locais: [
+    { nome: 'Quadra', asg: 'Igor' }, { nome: 'Parquinho', asg: 'Igor' }, { nome: 'Pracinha', asg: 'Igor' },
+    { nome: 'Vestiários', asg: 'Igor' }, { nome: 'Garagem • Lixo', asg: 'equipe' }, { nome: 'Bomba d\u2019Água', asg: 'João' },
+  ]},
+]
+
+function MapaEscola() {
+  const [filtro, setFiltro] = useState('todos')
+  const [aberto, setAberto] = useState(null)
+  const nomesFiltro = ['todos','João','Igor','Edna','Evanir','Daniela','equipe']
+  const labelFiltro = { todos:'TODOS', equipe:'EQUIPE/DUPLAS' }
+  return (
+    <div className="space-y-4">
+      <Card>
+        <Titulo>🗺️ Mapa da Limpeza por Ambiente</Titulo>
+        <p className="text-sm text-gray-600 mb-3">Toque num nome para filtrar seus ambientes. Toque num ambiente para ver os detalhes.</p>
+        <div className="flex flex-wrap gap-2">
+          {nomesFiltro.map(n => (
+            <button key={n} onClick={()=>{setFiltro(n); setAberto(null)}}
+              style={{background: n==='todos'?'#22303C':(CORES[n]||'#5E5E6E'), opacity: filtro===n?1:.45}}
+              className="display text-white font-extrabold rounded-full px-3 py-1.5 text-xs shadow">
+              {labelFiltro[n] || n.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </Card>
+      {MAPA_SECOES.map((sec,si) => (
+        <Card key={si}>
+          <p className="font-extrabold text-[#1F4E79]">{sec.titulo} {sec.sub && <span className="font-normal text-xs text-gray-500">— {sec.sub}</span>}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+            {sec.locais.map((l,li) => {
+              const dim = filtro!=='todos' && l.asg!==filtro
+              const key = si+'-'+li
+              return (
+                <button key={key} onClick={()=>setAberto(aberto===key?null:key)}
+                  style={{background: CORES[l.asg]||'#5E5E6E', opacity: dim?0.18:1}}
+                  className="text-white rounded-xl px-2 py-2 text-xs font-bold text-center relative transition">
+                  {l.nome}
+                  {l.mofo && <span className="absolute -top-1 -right-1 bg-yellow-300 text-yellow-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">MOFO</span>}
+                  {l.guardia && <span className="absolute -top-1 -left-1 bg-blue-100 text-[#1F4E79] text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">GUARD.</span>}
+                </button>
+              )
+            })}
+          </div>
+          {sec.locais.map((l,li) => aberto===(si+'-'+li) && (
+            <div key={'d'+li} className="mt-2 bg-gray-50 rounded-xl px-3 py-2 text-sm">
+              <b>{l.nome}</b> — responsável: <span className="font-bold" style={{color:CORES[l.asg]}}>{l.asg==='equipe'?'Equipe/Duplas':l.asg}</span>
+              {l.det && <p className="text-gray-600 mt-1">{l.det}</p>}
+            </div>
+          ))}
+        </Card>
+      ))}
+      <p className="text-xs text-gray-500 text-center">Selo MOFO = ambiente com mofo (arejamento diário + EPIs). Selo GUARD. = monitorado por Guardiã durante a rotina escolar.</p>
+    </div>
+  )
+}
+
 /* ================= APP ================= */
 export default function App() {
   const [usuario, setUsuario] = useState(null)
@@ -603,10 +694,10 @@ export default function App() {
   const nomes = ['João','Igor','Edna','Evanir','Daniela','Acompanhamento','Direção']
   const gestao = usuario==='Acompanhamento' || usuario==='Direção'
   const abas = usuario==='Direção'
-    ? [['fichaS','📋 Monitoramento'],['gestao','⚙️ Gestão da Equipe'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
+    ? [['fichaS','📋 Monitoramento'],['gestao','⚙️ Gestão da Equipe'],['mapa','🗺️ Mapa'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
     : gestao
-    ? [['fichaS','📋 Monitoramento'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
-    : [['rotina','🕐 Rotina'],['nota10','🏆 Sala Nota 10'],['ocorr','📸 Ocorrências'],['estoque','🟢 Estoque'],['vistoria','🔍 Sentinelas']]
+    ? [['fichaS','📋 Monitoramento'],['mapa','🗺️ Mapa'],['nota10','🏆 Sala Nota 10'],['estoque','🟢 Estoque'],['ocorr','📸 Ocorrências'],['vistoria','🔍 Vistorias']]
+    : [['rotina','🕐 Rotina'],['mapa','🗺️ Mapa'],['nota10','🏆 Sala Nota 10'],['ocorr','📸 Ocorrências'],['estoque','🟢 Estoque'],['vistoria','🔍 Sentinelas']]
   useEffect(()=>{ if(gestao) setAba('fichaS'); else setAba('rotina') },[usuario])
   if (!usuario && pendente) return <TelaPin nome={pendente} onOk={()=>{ setUsuario(pendente); setPendente(null) }} onVoltar={()=>setPendente(null)}/>
   if (!usuario) return (
@@ -633,6 +724,7 @@ export default function App() {
       </nav>
       <main className="px-4 max-w-3xl mx-auto">
         {aba==='rotina' && <Rotina usuario={usuario}/>}
+        {aba==='mapa' && <MapaEscola/>}
         {aba==='nota10' && <SalaNota10 usuario={usuario}/>}
         {aba==='ocorr' && <Ocorrencias usuario={usuario}/>}
         {aba==='estoque' && <Estoque usuario={usuario}/>}
